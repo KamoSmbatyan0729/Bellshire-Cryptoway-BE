@@ -1,20 +1,13 @@
-const mongoose = require("mongoose");
-require("dotenv").config();
-const colors = require("colors");
+const cassandra = require('cassandra-driver');
 
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      useFindAndModify: true,
-    });
+const client = new cassandra.Client({
+  contactPoints: ['127.0.0.1'], // or Docker IP
+  localDataCenter: 'datacenter1',
+  keyspace: 'bellshire',
+});
 
-    console.log(`MongoDB Connected: ${conn.connection.host}`.cyan.underline);
-  } catch (error) {
-    console.log(`Error: ${error.message}`.red.bold);
-    process.exit();
-  }
-};
+client.connect()
+  .then(() => console.log('🟢 ScyllaDB connected'))
+  .catch(err => console.error('🔴 ScyllaDB connection failed:', err));
 
-module.exports = connectDB;
+module.exports = client;
