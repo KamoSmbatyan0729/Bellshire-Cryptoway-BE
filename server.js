@@ -2,7 +2,11 @@ const express = require("express");
 const dotenv = require("dotenv");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const groupRoutes = require("./routes/groupRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const dmChatRoutes = require("./routes/dmChatRoutes");
+const uploadRoutes = require('./routes/uploadRoutes');
+const http = require("http");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
 
@@ -17,7 +21,12 @@ app.use(express.json()); // to accept json data
 
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/chat/group", groupRoutes);
 app.use("/api/message", messageRoutes);
+app.use("/api/chat/dm", dmChatRoutes);       // dm + friends
+// Serve static files from uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+app.use('/api', uploadRoutes);
 
 // --------------------------deployment------------------------------
 
@@ -41,49 +50,20 @@ if (process.env.NODE_ENV === "production") {
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
 
-const server = app.listen(
-  PORT,
-  console.log(`🚀 Server running at http://localhost:${PORT}...`)
-);
-
-const io = require("socket.io")(server, {
-  pingTimeout: 60000,
+// Create socket.io server
+const { Server } = require("socket.io");
+const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
-    // credentials: true,
+    origin: "*", // or frontend URL
+    methods: ["GET", "POST"],
   },
 });
 
-io.on("connection", (socket) => {
-  console.log("Connected to socket.io");
-  socket.on("setup", (userData) => {
-    socket.join(userData._id);
-    socket.emit("connected");
-  });
+// ✅ Pass `io` to your socket logic
+require("./socket")(io); // this runs the exported function from socket.js
 
-  socket.on("join chat", (room) => {
-    socket.join(room);
-    console.log("User Joined Room: " + room);
-  });
-  socket.on("typing", (room) => socket.in(room).emit("typing"));
-  socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
-
-  socket.on("new message", (newMessageRecieved) => {
-    var chat = newMessageRecieved.chat;
-
-    if (!chat.users) return console.log("chat.users not defined");
-
-    chat.users.forEach((user) => {
-      if (user._id == newMessageRecieved.sender._id) return;
-
-      socket.in(user._id).emit("message recieved", newMessageRecieved);
-    });
-  });
-
-  socket.off("setup", () => {
-    console.log("USER DISCONNECTED");
-    socket.leave(userData._id);
-  });
-});
+// Start listening
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

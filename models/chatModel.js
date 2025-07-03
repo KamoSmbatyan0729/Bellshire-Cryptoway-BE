@@ -13,7 +13,7 @@ const createServer = async (serverName, ownerWallet) => {
 
 const joinServer = async (serverId, userWallet) => {
   const query = `
-    INSERT INTO server_members (server_id, user_wallet, joined_at)
+    INSERT INTO server_members (server_id, wallet_address, joined_at)
     VALUES (?, ?, toTimestamp(now()))
   `;
   await db.execute(query, [serverId, userWallet], { prepare: true });
@@ -48,6 +48,7 @@ const getServerById = async (serverId) => {
     SELECT server_id, server_name, owner_wallet, created_at
     FROM servers
     WHERE server_id = ?
+    ALLOW FILTERING
   `;
   const result = await db.execute(query, [serverId], { prepare: true });
   return result.first();
@@ -58,10 +59,35 @@ const getServersByIds = async (serverIds) => {
   return Promise.all(promises);
 };
 
+const deleteServerById = async (serverId) => {
+  const query = `DELETE FROM servers WHERE server_id = ?`;
+  await db.execute(query, [serverId], { prepare: true });
+};
+
+const searchServersByName = async (query, excludeWallet) => {
+  const q = query.toLowerCase();
+
+  // Get all servers (⚠️ slow for big data)
+  const result = await db.execute(`SELECT * FROM servers`, [], {
+    prepare: true,
+  });
+
+  // Filter servers by name match in Node.js
+  const filtered = result.rows.filter(server =>
+    server.server_name.toLowerCase().includes(q) &&
+    server.owner_wallet !== excludeWallet
+  );
+
+  return filtered;
+};
+
 
 module.exports = {
   createServer,
   joinServer,
+  getServersByIds,
   getServerIdsByWallet,
   getServersCreatedByUser,
+  deleteServerById,
+  searchServersByName
 };

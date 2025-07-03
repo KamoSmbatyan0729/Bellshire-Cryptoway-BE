@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const chatModel = require("../models/chatModel");
+const groupModel = require("../models/groupModel");
 
 //@description     Create or fetch One to One Chat
 //@route           POST /api/chat/
@@ -30,14 +31,16 @@ const createServer = async (req, res) => {
 
 const joinServer = async (req, res) => {
   try {
-    const { serverId, userWallet } = req.body;
+    const { serverId } = req.body;
+    const userWallet = req.user.wallet_address;
     if (!serverId || !userWallet) {
       return res.status(400).json({ error: 'serverId and userWallet are required' });
     }
 
-    await serverModel.joinServer(serverId, userWallet);
+    await chatModel.joinServer(serverId, userWallet);
+    const joinedServers = await getServersJoinedByWallet(userWallet);
 
-    return res.status(200).json({ message: 'Joined server successfully', serverId, userWallet });
+    return res.status(200).json({ message: 'Joined server successfully', joinedServers });
   } catch (err) {
     console.error('Error joining server:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -70,22 +73,70 @@ const getServersJoinedByWallet = async (walletAddress) => {
   const serverIds = joinedServers.map(row => row.server_id);
 
   // Step 2: Get full server info
-  const servers = await getServersByIds(serverIds);
+  const servers = await chatModel.getServersByIds(serverIds);
 
-  // Optional: merge joined_at info into server objects
-  const joinedAtMap = new Map(joinedServers.map(j => [j.server_id.toString(), j.joined_at]));
-  const serversWithJoinedAt = servers.map(s => ({
-    ...s,
-    joined_at: joinedAtMap.get(s.server_id.toString()),
-  }));
+  return servers;
+};
 
-  return serversWithJoinedAt;
+const getServersByUser = async(req, res) => {
+  const ownerWallet = req.user.wallet_address;
+
+  const myServers = await getServersCreatedByUser(ownerWallet);
+  const joinedServers = await getServersJoinedByWallet(ownerWallet);
+  return res.status(200).json({ myserver: myServers, joinedserver: joinedServers });  
+}
+
+const deleteServerAndGroups = async (serverId) => {
+  // Step 1: Get all group_ids
+  const groupIds = await groupModel.getGroupIdsByServerId(serverId);
+
+  // Step 2: Delete all groups
+  for (const groupId of groupIds) {
+    await groupModel.deleteGroupById(groupId);
+  }
+
+  // Step 3: Delete the server itself
+  await chatModel.deleteServerById(serverId);
+};
+
+const deleteServer = async (req, res) => {
+  try {
+    const { serverId } = req.body;
+    if (!serverId) return res.status(400).json({ error: 'serverId is required' });
+
+    await deleteServerAndGroups(serverId);
+
+    res.status(200).json({ message: 'Server and related groups deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting server:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const searchServers = async (req, res) => {
+  try {
+    const { query } = req.query;
+    console.log("query : ", query);
+    const walletAddress = req.user.wallet_address
+
+    if (!query || query.length < 2) {
+      return res.status(400).json({ error: "Query too short" });
+    }
+
+    const servers = await chatModel.searchServersByName(query, walletAddress);
+    return res.status(200).json({ servers });
+  } catch (err) {
+    console.error("Error searching servers:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 
 module.exports = {
   createServer,
   joinServer,
-  getServersJoinedByWallet,
-  getServersCreatedByUser,
+  getServersByUser,
+  deleteServer,
+  searchServers,
+  deleteServerAndGroups
 };
