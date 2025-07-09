@@ -1,7 +1,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const userRoutes = require("./routes/userRoutes");
-const chatRoutes = require("./routes/chatRoutes");
+const serverRoutes = require("./routes/serverRoutes");
 const groupRoutes = require("./routes/groupRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const dmChatRoutes = require("./routes/dmChatRoutes");
@@ -13,6 +13,8 @@ const path = require("path");
 dotenv.config();
 const app = express();
 
+const cors = require('cors');
+app.use(cors());
 app.use(express.json()); // to accept json data
 
 // app.get("/", (req, res) => {
@@ -20,15 +22,20 @@ app.use(express.json()); // to accept json data
 // });
 
 app.use("/api/user", userRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/api/chat", serverRoutes);
 app.use("/api/chat/group", groupRoutes);
 app.use("/api/message", messageRoutes);
-app.use("/api/chat/dm", dmChatRoutes);       // dm + friends
+app.use("/api/chat/dm", dmChatRoutes);    // dm + friends
 // Serve static files from uploads folder
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
 app.use('/api', uploadRoutes);
 
 // --------------------------deployment------------------------------
+
+app.get('/files/:filename/:originalName', (req, res) => {
+  const filePath = path.join(__dirname, 'uploads', req.params.filename);
+  res.download(filePath, req.params.originalName); // <-- automatically sets Content-Disposition
+});
 
 const __dirname1 = path.resolve();
 

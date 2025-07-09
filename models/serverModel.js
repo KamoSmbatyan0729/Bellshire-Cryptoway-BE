@@ -3,11 +3,20 @@ const db = require('../config/db'); // your ScyllaDB client instance
 
 const createServer = async (serverName, ownerWallet) => {
   const serverId = uuidv4();
+
+  const is_dm = serverName == "DMServer"? true : false;    
+
   const query = `
-    INSERT INTO servers (server_id, server_name, owner_wallet, created_at)
-    VALUES (?, ?, ?, toTimestamp(now()))
+    INSERT INTO servers (id, server_name, owner_wallet, is_dm, created_at)
+    VALUES (?, ?, ?, ?, toTimestamp(now()))
   `;
-  await db.execute(query, [serverId, serverName, ownerWallet], { prepare: true });
+  
+  try{
+    await db.execute(query, [serverId, serverName, ownerWallet, is_dm], { prepare: true });
+  } catch(err){
+    console.log("create dm server error : ", err);
+  } 
+
   return serverId;
 };
 
@@ -16,16 +25,19 @@ const joinServer = async (serverId, userWallet) => {
     INSERT INTO server_members (server_id, wallet_address, joined_at)
     VALUES (?, ?, toTimestamp(now()))
   `;
+
   await db.execute(query, [serverId, userWallet], { prepare: true });
-  return { serverId, userWallet };
+
+  return serverId;
 };
 
 // Get all servers created by a user
 const getServersCreatedByUser = async (ownerWallet) => {
   const query = `
-    SELECT server_id, server_name, created_at
+    SELECT *
     FROM servers
     WHERE owner_wallet = ?
+    AND is_dm = false
     ALLOW FILTERING
   `;
   const result = await db.execute(query, [ownerWallet], { prepare: true });
@@ -34,7 +46,7 @@ const getServersCreatedByUser = async (ownerWallet) => {
 
 const getServerIdsByWallet = async (walletAddress) => {
   const query = `
-    SELECT server_id, joined_at
+    SELECT server_id
     FROM server_members
     WHERE wallet_address = ?
     ALLOW FILTERING
@@ -45,13 +57,14 @@ const getServerIdsByWallet = async (walletAddress) => {
 
 const getServerById = async (serverId) => {
   const query = `
-    SELECT server_id, server_name, owner_wallet, created_at
+    SELECT *
     FROM servers
-    WHERE server_id = ?
+    WHERE id = ?
+    AND is_dm = false
     ALLOW FILTERING
   `;
   const result = await db.execute(query, [serverId], { prepare: true });
-  return result.first();
+  return result.rows[0];
 };
 
 const getServersByIds = async (serverIds) => {
@@ -59,10 +72,38 @@ const getServersByIds = async (serverIds) => {
   return Promise.all(promises);
 };
 
-const deleteServerById = async (serverId) => {
-  const query = `DELETE FROM servers WHERE server_id = ?`;
-  await db.execute(query, [serverId], { prepare: true });
-};
+const deleteServerById = async (serverId, ownerWallet) => {
+  const query = `
+    DELETE
+    FROM servers 
+    WHERE id = ? AND owner_wallet = ?`;
+
+  await db.execute(query, [serverId, ownerWallet], { prepare: true });
+}
+
+const leaveServer = async (serverId, walletAddress) => {
+  const query = `
+    DELETE 
+    FROM server_members 
+    WHERE server_id = ? AND wallet_address = ?`;
+
+  await db.execute(query, [serverId, walletAddress], { prepare: true });
+
+  // Step 1: Get all server_ids joined by user
+  const joinedServers = await getServerIdsByWallet(walletAddress);
+
+  if (joinedServers.length === 0) {
+    return [];
+  }
+
+  // Extract server IDs only
+  const serverIds = joinedServers.map(row => row.server_id);
+
+  // Step 2: Get full server info
+  const servers = await getServersByIds(serverIds);
+
+  return servers;
+}
 
 const searchServersByName = async (query, excludeWallet) => {
   const q = query.toLowerCase();
@@ -88,6 +129,8 @@ module.exports = {
   getServersByIds,
   getServerIdsByWallet,
   getServersCreatedByUser,
+  getServerById,
+  searchServersByName,
   deleteServerById,
-  searchServersByName
+  leaveServer
 };

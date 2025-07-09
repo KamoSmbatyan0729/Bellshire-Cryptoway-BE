@@ -9,6 +9,4 @@ const generateToken = (id) => {
   });
 };
 
-console.log("generateToken", generateToken);
-
 module.exports = generateToken;

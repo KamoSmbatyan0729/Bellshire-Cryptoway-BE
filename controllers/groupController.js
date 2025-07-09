@@ -8,7 +8,7 @@ const createGroup = async (req, res) => {
       return res.status(400).json({ error: 'groupName and serverId are required' });
     }
 
-    const group = await groupModel.createGroupInServer(serverId, groupName);
+    const group = await groupModel.createGroupInServer(groupName, serverId);
     const groups = await groupModel.getGroupsByServerId(serverId);
     res.status(200).json({ groups });
   } catch (err) {

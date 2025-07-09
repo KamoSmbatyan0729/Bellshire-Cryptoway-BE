@@ -1,10 +1,11 @@
 const db = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
-const createGroupInServer = async (serverId, groupName) => {
+const createGroupInServer = async (groupName, serverId) => {
     const groupId = uuidv4();
+
     const query = `
-    INSERT INTO server_groups (group_id, group_name, server_id, created_at)
+    INSERT INTO server_groups (id, group_name, server_id, created_at)
     VALUES (?, ?, ?, toTimestamp(now()))
   `;
     const result = await db.execute(query, [groupId, groupName, serverId], { prepare: true });
@@ -14,7 +15,7 @@ const createGroupInServer = async (serverId, groupName) => {
 
 const getGroupsByServerId = async (serverId) => {
     const query = `
-      SELECT group_id, group_name, created_at
+      SELECT *
       FROM server_groups
       WHERE server_id = ?
       ALLOW FILTERING
@@ -24,19 +25,35 @@ const getGroupsByServerId = async (serverId) => {
 };
 
 const getGroupIdsByServerId = async (serverId) => {
-    const query = `SELECT group_id FROM server_groups WHERE server_id = ? ALLOW FILTERING`;
+    const query = `SELECT id FROM server_groups WHERE server_id = ? ALLOW FILTERING`;
     const result = await db.execute(query, [serverId], { prepare: true });
-    return result.rows.map(r => r.group_id);
+    return result.rows.map(r => r.id);
 };
 
-const deleteGroupById = async (groupId) => {
-    const query = `DELETE FROM server_groups WHERE group_id = ?`;
-    await db.execute(query, [groupId], { prepare: true });
+const deleteGroupWithMessages = async (groupId, serverId) => {
+    const deleteMessagesQuery = `
+    DELETE FROM messages WHERE group_id = ?
+    `;
+
+    const deleteGroupQuery = `
+    DELETE FROM server_groups WHERE id = ?
+    `;
+
+    await db.execute(deleteMessagesQuery, [groupId], { prepare: true });
+    await db.execute(deleteGroupQuery, [groupId], { prepare: true });
+    
+    return await getGroupsByServerId(serverId);
 };
+
+const deleteGroupById = async(groupId) => {
+    const query = `DELETE FROM server_groups WHERE id = ?`;
+    await db.execute(query, [groupId], { prepare: true });
+}
 
 module.exports = {
     createGroupInServer,
     getGroupsByServerId,
-    deleteGroupById,
-    getGroupIdsByServerId
+    getGroupIdsByServerId,
+    deleteGroupWithMessages,
+    deleteGroupById
 };
