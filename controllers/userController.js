@@ -26,10 +26,6 @@ const authUser = asyncHandler(async (req, res) => {
       token: generateToken(wallet_address),
     }
 
-    //create owner server for dm
-    await serverModel.createServer("DMServer", wallet_address);
-    
-    console.log("response : ", responseData);
     res.json(responseData);
   } else {
     res.status(401);
