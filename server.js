@@ -8,6 +8,7 @@ const messageRoutes = require("./routes/messageRoutes");
 const dmChatRoutes = require("./routes/dmChatRoutes");
 const uploadRoutes = require('./routes/uploadRoutes');
 const https = require("https");
+const http = require("http");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
 require('./service/cronjob');
@@ -59,12 +60,12 @@ if (process.env.NODE_ENV === "production") {
 app.use(notFound);
 app.use(errorHandler);
 
-const sslOptions = {
-  key: fs.readFileSync('./ssl/server.key'),
-  cert: fs.readFileSync('./ssl/server.cert')
-};
+// const sslOptions = {
+//   key: fs.readFileSync('./ssl/server.key'),
+//   cert: fs.readFileSync('./ssl/server.cert')
+// };
 
-const server = https.createServer(sslOptions, app);
+const server = http.createServer(app);
 
 // Create socket.io server
 const { Server } = require("socket.io");
