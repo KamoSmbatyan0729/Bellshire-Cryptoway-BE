@@ -1,18 +1,16 @@
-const { v4: uuidv4 } = require('uuid');
+const { v1: uuidv1 } = require('uuid');
 const db = require('../config/db'); // your ScyllaDB client instance
 
-const createServer = async (serverName, ownerWallet) => {
-  const serverId = uuidv4();
-
-  const is_dm = serverName == "DMServer"? true : false;    
+const createServer = async (serverName, ownerWallet, channelId) => {
+  const serverId = uuidv1();
 
   const query = `
-    INSERT INTO servers (id, server_name, owner_wallet, is_dm, created_at)
+    INSERT INTO servers (id, server_name, owner_wallet, channel_id, created_at)
     VALUES (?, ?, ?, ?, toTimestamp(now()))
   `;
   
   try{
-    await db.execute(query, [serverId, serverName, ownerWallet, is_dm], { prepare: true });
+    await db.execute(query, [serverId, serverName, ownerWallet, channelId], { prepare: true });
   } catch(err){
     console.log("create dm server error : ", err);
   } 
@@ -37,7 +35,6 @@ const getServersCreatedByUser = async (ownerWallet) => {
     SELECT *
     FROM servers
     WHERE owner_wallet = ?
-    AND is_dm = false
     ALLOW FILTERING
   `;
   const result = await db.execute(query, [ownerWallet], { prepare: true });
@@ -60,7 +57,6 @@ const getServerById = async (serverId) => {
     SELECT *
     FROM servers
     WHERE id = ?
-    AND is_dm = false
     ALLOW FILTERING
   `;
   const result = await db.execute(query, [serverId], { prepare: true });

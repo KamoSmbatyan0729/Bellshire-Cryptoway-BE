@@ -1,8 +1,8 @@
 const db = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
+const { v1: uuidv1 } = require('uuid');
 
 const createGroupInServer = async (groupName, serverId) => {
-    const groupId = uuidv4();
+    const groupId = uuidv1();
 
     const query = `
     INSERT INTO server_groups (id, group_name, server_id, created_at)

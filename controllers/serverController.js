@@ -9,14 +9,14 @@ const userModel = require("../models/userModel");
 //@access          Protected
 const createServer = async (req, res) => {
   try {
-    const { serverName } = req.body;
+    const { serverName, channelId } = req.body;
     const ownerWallet = req.user.wallet_address;
 
     if (!serverName || !ownerWallet) {
       return res.status(400).json({ error: 'serverName and ownerWallet are required' });
     }
 
-    const serverId = await serverModel.createServer(serverName, ownerWallet);
+    const serverId = await serverModel.createServer(serverName, ownerWallet, channelId);
     const createdServer = await serverModel.getServerById(serverId);
 
     return res.status(200).json({ message: 'Server created', server : createdServer });

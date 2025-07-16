@@ -9,6 +9,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const http = require("http");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
+require('./service/cronjob');
 
 dotenv.config();
 const app = express();
