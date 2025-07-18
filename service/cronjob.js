@@ -98,12 +98,24 @@ async function recordUserActivity() {
   try {
     const { addresses, scores } = await prepareActivationScoreData();
     const contract = getContract();
+    const web3 = new Web3(process.env.RPC_URL);
 
     // Prepare the tx data
-    const receipt = await contract.methods.recordUserActivity(addresses, scores).send({
+    const data  = await contract.methods.recordUserActivity(addresses, scores).encodeABI();
+    const nonce = await web3.eth.getTransactionCount(process.env.OWNER_ADDRESS);
+
+    const tx = {
       from: process.env.OWNER_ADDRESS,
-      gas: 200000 // Adjust gas limit as needed
-    });
+      to: process.env.PROXY_TOKEN_CONTRACT_ADDRESS,
+      data,
+      gas: 300000,
+      nonce,
+      chainId: 11155111 // Change this to your chain (e.g., 5 = Goerli, 11155111 = Sepolia, 249 = Shasta)
+    };
+
+    const signed = await web3.eth.accounts.signTransaction(tx, process.env.OWNER_PRIVATE_KEY);
+    const receipt = await web3.eth.sendSignedTransaction(signed.rawTransaction);
+
     console.log('Transaction receipt:', receipt);
 
   } catch (error) {
@@ -128,14 +140,12 @@ async function getUserDetails() {
 
       console.log('✅ User Details:', parsed);
     }
-
-    console.log("Raw result:", result);
   } catch (err) {
     console.error('❌ Failed to fetch user details:', err.message || err);
   }
 }
 
-cron.schedule('00 09 * * *', async () => {
+cron.schedule('55 09 * * *', async () => {
   console.log("cronjob called!!!!!!!!!!!!!!!");
   await recordUserActivity();
   await getUserDetails();
