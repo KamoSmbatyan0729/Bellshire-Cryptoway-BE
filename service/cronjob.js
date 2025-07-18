@@ -100,7 +100,7 @@ async function recordUserActivity() {
     const contract = getContract();
 
     // Prepare the tx data
-    const receipt = contract.methods.recordUserActivity(addresses, scores).send({
+    const receipt = await contract.methods.recordUserActivity(addresses, scores).send({
       from: process.env.OWNER_ADDRESS,
       gas: 200000 // Adjust gas limit as needed
     });
